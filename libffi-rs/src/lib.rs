@@ -96,6 +96,7 @@ pub mod raw {
     pub use libffi_sys::*;
 }
 
+pub mod destination;
 pub mod high;
 pub mod low;
 pub mod middle;
