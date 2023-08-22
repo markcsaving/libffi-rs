@@ -91,9 +91,10 @@ macro_rules! abort_on_panic {
 
         let b = Bomb;
         // If this panics, `b` will be dropped, triggering the bomb.
-        $body;
+        let result = $body;
         // Defuse the bomb.
         std::mem::forget(b);
+        result
     }};
 }
 
@@ -115,7 +116,8 @@ macro_rules! define_closure_mod {
             use std::io::{self, Write};
 
             use super::*;
-            use crate::{low, middle};
+            use crate::{low, middle, destination::{Destination, Finished}};
+
 
             /// A typed CIF, which statically tracks argument and result types.
             pub struct $cif<$( $T, )* R> {
@@ -177,10 +179,10 @@ macro_rules! define_closure_mod {
 
             /// The type of function called from an immutable, typed closure.
             pub type $callback<U, $( $T, )* R>
-                = extern "C" fn(cif:      &low::ffi_cif,
-                                result:   &mut R,
+                = for <'b> extern "C" fn(cif:      &low::ffi_cif,
+                                result:   Destination<'b, R>,
                                 args:     &($( &$T, )*),
-                                userdata: &U);
+                                userdata: &U) -> Finished<'b>;
 
             /// An immutable, typed closure with the given argument and result
             /// types.
@@ -255,28 +257,26 @@ macro_rules! define_closure_mod {
                 }
 
                 #[allow(non_snake_case)]
-                extern "C" fn static_callback<Callback>
+                extern "C" fn static_callback<'b, Callback>
                     (_cif:     &low::ffi_cif,
-                     result:   &mut R::RetType,
+                     result:   Destination<'b, R::RetType>,
                      &($( &$T, )*):
                                &($( &$T, )*),
-                     userdata: &Callback)
+                     userdata: &Callback) -> Finished<'b>
                   where Callback: Fn($( $T, )*) -> R + 'a
                 {
                     abort_on_panic!("Cannot panic inside FFI callback", {
-                        unsafe {
-                            ptr::write(result, userdata($( $T, )*).into());
-                        }
-                    });
+                        result.finish(userdata($( $T, )*).into())
+                    })
                 }
             }
 
             /// The type of function called from a mutable, typed closure.
             pub type $callback_mut<U, $( $T, )* R>
-                = extern "C" fn(cif:      &low::ffi_cif,
-                                result:   &mut R,
+                = for <'b> extern "C" fn(cif:      &low::ffi_cif,
+                                result:   Destination<'b, R>,
                                 args:     &($( &$T, )*),
-                                userdata: &mut U);
+                                userdata: &mut U) -> Finished<'b>;
 
             /// A mutable, typed closure with the given argument and
             /// result types.
@@ -344,19 +344,17 @@ macro_rules! define_closure_mod {
                 }
 
                 #[allow(non_snake_case)]
-                extern "C" fn static_callback<Callback>
+                extern "C" fn static_callback<'b, Callback>
                     (_cif:     &low::ffi_cif,
-                     result:   &mut R::RetType,
+                     result:   Destination<'b, R::RetType>,
                      &($( &$T, )*):
                                &($( &$T, )*),
-                     userdata: &mut Callback)
+                     userdata: &mut Callback) -> Finished<'b>
                   where Callback: FnMut($( $T, )*) -> R + 'a
                 {
-                    abort_on_panic!("Cannot panic inside FFI callback", {
-                        unsafe {
-                            ptr::write(result, userdata($( $T, )*).into());
-                        }
-                    });
+                    abort_on_panic!("Cannot panic inside FFI callback",
+                            result.finish(userdata($( $T, )*).into())
+                    )
                 }
             }
 
@@ -395,25 +393,25 @@ macro_rules! define_closure_mod {
                 }
 
                 #[allow(non_snake_case)]
-                extern "C" fn static_callback<Callback>
+                extern "C" fn static_callback<'b, Callback>
                     (_cif:     &low::ffi_cif,
-                     result:   &mut R::RetType,
+                     result:   Destination<'b, R::RetType>,
                      &($( &$T, )*):
                                &($( &$T, )*),
-                     userdata: &mut Option<Callback>)
+                     userdata: &mut Option<Callback>) -> Finished<'b>
                   where Callback: FnOnce($( $T, )*) -> R
                 {
                     if let Some(userdata) = userdata.take() {
                         abort_on_panic!("Cannot panic inside FFI callback", {
                             unsafe {
-                                ptr::write(result, userdata($( $T, )*).into());
+                                result.finish(userdata($( $T, )*).into())
                             }
-                        });
+                        })
                     } else {
                         // There is probably a better way to abort here.
                         let _ =
                             io::stderr().write(b"FnOnce closure already used");
-                        process::exit(2);
+                        process::exit(2)
                     }
                 }
             }
