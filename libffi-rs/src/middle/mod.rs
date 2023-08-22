@@ -194,21 +194,22 @@ impl Cif {
 /// ```
 /// use std::mem;
 /// use std::os::raw::c_void;
+/// use libffi::destination::{Destination, Finished};
 ///
 /// use libffi::middle::*;
 /// use libffi::low;
 ///
-/// unsafe extern "C" fn lambda_callback<F: Fn(u64, u64) -> u64>(
+/// unsafe extern "C" fn lambda_callback<'a, F: Fn(u64, u64) -> u64>(
 ///     _cif: &low::ffi_cif,
-///     result: &mut u64,
+///     result: Destination<'a, u64>,
 ///     args: *const *const c_void,
-///     userdata: &F)
+///     userdata: &F) -> Finished<'a>
 /// {
 ///     let args = args as *const &u64;
 ///     let arg1 = **args.offset(0);
 ///     let arg2 = **args.offset(1);
 ///
-///     *result = userdata(arg1, arg2);
+///     result.finish(userdata(arg1, arg2))
 /// }
 ///
 /// let cif = Cif::new(vec![Type::u64(), Type::u64()].into_iter(),
@@ -427,6 +428,7 @@ mod test {
     use super::*;
     use crate::low;
     use std::os::raw::c_void;
+    use crate::destination::{Destination, Finished};
 
     #[test]
     fn call() {
@@ -456,14 +458,14 @@ mod test {
         assert_eq!(12, fun(7));
     }
 
-    unsafe extern "C" fn callback(
+    unsafe extern "C" fn callback<'a>(
         _cif: &low::ffi_cif,
-        result: &mut u64,
+        result: Destination<'a, u64>,
         args: *const *const c_void,
         userdata: &u64,
-    ) {
+    ) -> Finished<'a> {
         let args = args as *const &u64;
-        *result = **args + *userdata;
+        result.finish(**args + *userdata)
     }
 
     #[test]
@@ -477,17 +479,17 @@ mod test {
         assert_eq!(11, fun(5, 6));
     }
 
-    unsafe extern "C" fn callback2<F: Fn(u64, u64) -> u64>(
+    unsafe extern "C" fn callback2<'a, F: Fn(u64, u64) -> u64>(
         _cif: &low::ffi_cif,
-        result: &mut u64,
+        result: Destination<'a, u64>,
         args: *const *const c_void,
         userdata: &F,
-    ) {
+    ) -> Finished<'a> {
         let args = args as *const &u64;
         let arg1 = **args.offset(0);
         let arg2 = **args.offset(1);
 
-        *result = userdata(arg1, arg2);
+        result.finish(userdata(arg1, arg2))
     }
 
     #[test]

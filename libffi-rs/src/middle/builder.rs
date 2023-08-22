@@ -23,21 +23,22 @@ use super::types::Type;
 /// ```
 /// use std::mem;
 /// use std::os::raw::c_void;
+/// use libffi::destination::{Destination, Finished};
 ///
 /// use libffi::middle::*;
 /// use libffi::low;
 ///
-/// unsafe extern "C" fn lambda_callback<F: Fn(u64, u64) -> u64>(
+/// unsafe extern "C" fn lambda_callback<'a, F: Fn(u64, u64) -> u64>(
 ///     _cif: &low::ffi_cif,
-///     result: &mut u64,
+///     result: Destination<'a, u64>,
 ///     args: *const *const c_void,
-///     userdata: &F)
+///     userdata: &F) -> Finished<'a>
 /// {
 ///     let args: *const &u64 = mem::transmute(args);
 ///     let arg1 = **args.offset(0);
 ///     let arg2 = **args.offset(1);
 ///
-///     *result = userdata(arg1, arg2);
+///     result.finish(userdata(arg1, arg2))
 /// }
 ///
 /// let lambda = |x: u64, y: u64| x + y;

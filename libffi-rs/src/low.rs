@@ -123,6 +123,7 @@ impl CodePtr {
 pub use raw::{
     ffi_abi, ffi_abi_FFI_DEFAULT_ABI, ffi_arg, ffi_cif, ffi_closure, ffi_sarg, ffi_status, ffi_type,
 };
+use crate::destination::{Destination, Finished};
 
 /// Re-exports the [`ffi_type`] objects used to describe the types of
 /// arguments and results.
@@ -407,19 +408,19 @@ pub unsafe fn closure_free(closure: *mut ffi_closure) {
 /// to the callback, and `R` is the type of the result. The parameters
 /// are not typed, since they are passed as a C array of `void*`.
 pub type Callback<U, R> =
-    unsafe extern "C" fn(cif: &ffi_cif, result: &mut R, args: *const *const c_void, userdata: &U);
+    for <'a> unsafe extern "C" fn(cif: &ffi_cif, result: Destination<'a, R>, args: *const *const c_void, userdata: &U) -> Finished<'a>;
 
 /// The type of function called by a mutable closure.
 ///
 /// `U` is the type of the user data captured by the closure and passed
 /// to the callback, and `R` is the type of the result. The parameters
 /// are not typed, since they are passed as a C array of `void*`.
-pub type CallbackMut<U, R> = unsafe extern "C" fn(
+pub type CallbackMut<U, R> = for <'a> unsafe extern "C" fn(
     cif: &ffi_cif,
-    result: &mut R,
+    result: Destination<'a, R>,
     args: *const *const c_void,
     userdata: &mut U,
-);
+) -> Finished<'a>;
 
 /// The callback type expected by [`raw::ffi_prep_closure_loc`].
 pub type RawCallback = unsafe extern "C" fn(
@@ -466,14 +467,15 @@ pub type RawCallback = unsafe extern "C" fn(
 ///
 /// use std::mem;
 /// use std::os::raw::c_void;
+/// use libffi::destination::{Destination, Finished};
 ///
-/// unsafe extern "C" fn callback(_cif: &ffi_cif,
-///                               result: &mut u64,
+/// unsafe extern "C" fn callback<'a>(_cif: &ffi_cif,
+///                               result: Destination<'a, u64>,
 ///                               args: *const *const c_void,
-///                               userdata: &u64)
+///                               userdata: &u64) -> Finished<'a>
 /// {
 ///     let args: *const &u64 = mem::transmute(args);
-///     *result = **args + *userdata;
+///     result.finish(**args + *userdata)
 /// }
 ///
 /// fn twice(f: extern "C" fn(u64) -> u64, x: u64) -> u64 {
@@ -558,15 +560,17 @@ pub unsafe fn prep_closure<U, R>(
 ///
 /// use std::mem;
 /// use std::os::raw::c_void;
+/// use libffi::destination::{Destination, Finished};
 ///
-/// unsafe extern "C" fn callback(_cif: &ffi_cif,
-///                               result: &mut u64,
+/// unsafe extern "C" fn callback<'a>(_cif: &ffi_cif,
+///                               result: Destination<'a, u64>,
 ///                               args: *const *const c_void,
-///                               userdata: &mut u64)
+///                               userdata: &mut u64) -> Finished<'a>
 /// {
 ///     let args: *const &u64 = mem::transmute(args);
-///     *result = *userdata;
+///     let finished = result.finish(*userdata);
 ///     *userdata += **args;
+///     finished
 /// }
 ///
 /// fn twice(f: extern "C" fn(u64) -> u64, x: u64) -> u64 {
