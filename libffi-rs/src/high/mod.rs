@@ -112,7 +112,7 @@ macro_rules! define_closure_mod {
         pub mod $module {
             use std::any::Any;
             use std::marker::PhantomData;
-            use std::{mem, process, ptr};
+            use std::{mem, process};
             use std::io::{self, Write};
 
             use super::*;
@@ -256,7 +256,10 @@ macro_rules! define_closure_mod {
                                      callback)
                 }
 
-                #[allow(non_snake_case)]
+                /// Note: the improper_ctypes_definitions lint
+                /// triggers because the return type is Finished<'b>. See the docs
+                /// for [`crate::destination::Finished`] for more.
+                #[allow(non_snake_case, improper_ctypes_definitions)]
                 extern "C" fn static_callback<'b, Callback>
                     (_cif:     &low::ffi_cif,
                      result:   Destination<'b, R::RetType>,
@@ -343,7 +346,10 @@ macro_rules! define_closure_mod {
                                      callback)
                 }
 
-                #[allow(non_snake_case)]
+                /// Note: the improper_ctypes_definitions lint
+                /// triggers because the return type is Finished<'b>. See the docs
+                /// for [`crate::destination::Finished`] for more.
+                #[allow(non_snake_case, improper_ctypes_definitions)]
                 extern "C" fn static_callback<'b, Callback>
                     (_cif:     &low::ffi_cif,
                      result:   Destination<'b, R::RetType>,
@@ -392,7 +398,10 @@ macro_rules! define_closure_mod {
                                      callback)
                 }
 
-                #[allow(non_snake_case)]
+                /// Note: the improper_ctypes_definitions lint
+                /// triggers because the return type is Finished<'b>. See the docs
+                /// for [`crate::destination::Finished`] for more.
+                #[allow(non_snake_case, improper_ctypes_definitions)]
                 extern "C" fn static_callback<'b, Callback>
                     (_cif:     &low::ffi_cif,
                      result:   Destination<'b, R::RetType>,
@@ -402,11 +411,9 @@ macro_rules! define_closure_mod {
                   where Callback: FnOnce($( $T, )*) -> R
                 {
                     if let Some(userdata) = userdata.take() {
-                        abort_on_panic!("Cannot panic inside FFI callback", {
-                            unsafe {
+                        abort_on_panic!("Cannot panic inside FFI callback",
                                 result.finish(userdata($( $T, )*).into())
-                            }
-                        })
+                        )
                     } else {
                         // There is probably a better way to abort here.
                         let _ =

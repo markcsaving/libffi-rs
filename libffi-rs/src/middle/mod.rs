@@ -199,6 +199,8 @@ impl Cif {
 /// use libffi::middle::*;
 /// use libffi::low;
 ///
+/// /// See `[libffi::destination::Finished`] for why we need to ignore this lint.
+/// #[allow(improper_ctypes_definitions)]
 /// unsafe extern "C" fn lambda_callback<'a, F: Fn(u64, u64) -> u64>(
 ///     _cif: &low::ffi_cif,
 ///     result: Destination<'a, u64>,
@@ -426,9 +428,9 @@ impl ClosureOnce {
 #[cfg(test)]
 mod test {
     use super::*;
+    use crate::destination::{Destination, Finished};
     use crate::low;
     use std::os::raw::c_void;
-    use crate::destination::{Destination, Finished};
 
     #[test]
     fn call() {
@@ -458,6 +460,8 @@ mod test {
         assert_eq!(12, fun(7));
     }
 
+    /// See [`Finished`] for why we need to ignore this lint.
+    #[allow(improper_ctypes_definitions)]
     unsafe extern "C" fn callback<'a>(
         _cif: &low::ffi_cif,
         result: Destination<'a, u64>,
@@ -479,6 +483,8 @@ mod test {
         assert_eq!(11, fun(5, 6));
     }
 
+    /// See [`Finished`] for why we need to ignore this lint.
+    #[allow(improper_ctypes_definitions)]
     unsafe extern "C" fn callback2<'a, F: Fn(u64, u64) -> u64>(
         _cif: &low::ffi_cif,
         result: Destination<'a, u64>,

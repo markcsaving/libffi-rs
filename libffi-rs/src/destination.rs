@@ -21,12 +21,17 @@ pub struct Destination<'a, R> {
 /// A datum of type Finished<'a> can only be constructed from a [`Destination<'a, R>`]. It
 /// represents a proof that we actually did fill in the value. This type has zero size and
 /// has alignment 1.
+///
+/// I claim that Finished should be FFI-safe when used as the return type; the corresponding
+/// return type in C should be void. It is unclear whether this is actually guaranteed, but as of
+/// the current version of the compiler (1.71.1), the compiler does make this true. For now,
+/// we must use #\[allow(improper_ctypes_definition)\] when defining an `extern "C"` function
+/// that returns a Finished.
 #[repr(transparent)]
 pub struct Finished<'a> {
     // Finished must be invariant with respect to 'a.
     _phantom: WithInvariant<'a, ()>,
 }
-
 
 /// repr(transparent) equivalent to T, invariant with respect to lifetime 'a.
 #[repr(transparent)]
@@ -63,7 +68,6 @@ impl<'a, T> DerefMut for WithInvariant<'a, T> {
 }
 
 impl<'a> Finished<'a> {
-
     fn new() -> Self {
         Self {
             _phantom: WithInvariant::new(()),
@@ -88,7 +92,7 @@ impl<'a, R> Destination<'a, R> {
     /// two destinations that have the same lifetime.
     fn new(dest: &'a mut MaybeUninit<R>) -> Self {
         Self {
-            dest: WithInvariant::new(dest)
+            dest: WithInvariant::new(dest),
         }
     }
 
@@ -152,7 +156,9 @@ impl<'a, R> Destination<'a, R> {
     /// let array: [i32; 3] = Destination::with_destination(|mut destination| {
     ///     let mut uninit_reference: &mut MaybeUninit<[i32; 3]> = destination.as_mut();
     ///     {
-    ///         let mut reference_uninit: &mut [MaybeUninit<i32>; 3] = unsafe { &mut*(uninit_reference as *mut _ as *mut _)};
+    ///         let mut reference_uninit: &mut [MaybeUninit<i32>; 3] = unsafe {
+    ///             &mut*(uninit_reference as *mut _ as *mut _)
+    ///         };
     ///         for i in 0..3 {
     ///             let output = i as i32;
     ///             reference_uninit[i].write(output);
@@ -170,7 +176,6 @@ impl<'a, R> Destination<'a, R> {
     /// }
     /// ```
     pub unsafe fn initialized_unchecked(self) -> (&'a mut R, Finished<'a>) {
-
         (self.dest.into().assume_init_mut(), Finished::new())
     }
 
@@ -191,7 +196,9 @@ impl<'a, R> Destination<'a, R> {
     /// let array: [i32; 3] = Destination::with_destination(|mut destination| {
     ///     let mut uninit_reference: &mut MaybeUninit<[i32; 3]> = destination.as_mut();
     ///     {
-    ///         let mut reference_uninit: &mut [MaybeUninit<i32>; 3] = unsafe { &mut*(uninit_reference as *mut _ as *mut _)};
+    ///         let mut reference_uninit: &mut [MaybeUninit<i32>; 3] = unsafe {
+    ///             &mut*(uninit_reference as *mut _ as *mut _)
+    ///         };
     ///         for i in 0..3 {
     ///             let output = 1 + i as i32;
     ///             reference_uninit[i].write(output);

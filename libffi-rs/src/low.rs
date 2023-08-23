@@ -120,10 +120,10 @@ impl CodePtr {
     }
 }
 
+use crate::destination::{Destination, Finished};
 pub use raw::{
     ffi_abi, ffi_abi_FFI_DEFAULT_ABI, ffi_arg, ffi_cif, ffi_closure, ffi_sarg, ffi_status, ffi_type,
 };
-use crate::destination::{Destination, Finished};
 
 /// Re-exports the [`ffi_type`] objects used to describe the types of
 /// arguments and results.
@@ -407,15 +407,19 @@ pub unsafe fn closure_free(closure: *mut ffi_closure) {
 /// `U` is the type of the user data captured by the closure and passed
 /// to the callback, and `R` is the type of the result. The parameters
 /// are not typed, since they are passed as a C array of `void*`.
-pub type Callback<U, R> =
-    for <'a> unsafe extern "C" fn(cif: &ffi_cif, result: Destination<'a, R>, args: *const *const c_void, userdata: &U) -> Finished<'a>;
+pub type Callback<U, R> = for<'a> unsafe extern "C" fn(
+    cif: &ffi_cif,
+    result: Destination<'a, R>,
+    args: *const *const c_void,
+    userdata: &U,
+) -> Finished<'a>;
 
 /// The type of function called by a mutable closure.
 ///
 /// `U` is the type of the user data captured by the closure and passed
 /// to the callback, and `R` is the type of the result. The parameters
 /// are not typed, since they are passed as a C array of `void*`.
-pub type CallbackMut<U, R> = for <'a> unsafe extern "C" fn(
+pub type CallbackMut<U, R> = for<'a> unsafe extern "C" fn(
     cif: &ffi_cif,
     result: Destination<'a, R>,
     args: *const *const c_void,
