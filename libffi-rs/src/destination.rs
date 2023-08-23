@@ -2,7 +2,6 @@
 
 use core::convert::{AsMut, AsRef};
 use core::mem::MaybeUninit;
-use std::cell::Cell;
 use std::marker::PhantomData;
 use std::ops::{Deref, DerefMut};
 
@@ -37,7 +36,7 @@ pub struct Finished<'a> {
 #[repr(transparent)]
 struct WithInvariant<'a, T> {
     value: T,
-    _phantom: PhantomData<Cell<&'a i32>>,
+    _phantom: PhantomData<fn(&'a ()) -> &'a ()>,
 }
 
 impl<'a, T> WithInvariant<'a, T> {
